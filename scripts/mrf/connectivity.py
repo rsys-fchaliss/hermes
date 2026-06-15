@@ -78,7 +78,7 @@ def test_connectivity(
         host: Hostname or IP address of the MRF node.
         port: Management API port.
         timeout: Socket / HTTP timeout in seconds.
-        auth_token: Optional ******
+        auth_token: Optional bearer token for authenticated API calls.
 
     Returns:
         :class:`ConnectivityResult` summarising all checks.
@@ -141,7 +141,7 @@ def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
     parser.add_argument("--host", default="localhost", help="MRF hostname or IP")
     parser.add_argument("--port", type=int, default=8080, help="Management API port")
     parser.add_argument("--timeout", type=int, default=10, help="Request timeout (seconds)")
-    parser.add_argument("--token", default=None, help="****** token")
+    parser.add_argument("--token", default=None, help="API authentication token")
     parser.add_argument(
         "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"]
     )

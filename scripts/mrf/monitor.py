@@ -51,7 +51,7 @@ def get_metrics(
         host: Hostname or IP address of the MRF node.
         port: Management API port.
         timeout: Request timeout in seconds.
-        auth_token: Optional ******
+        auth_token: Optional bearer token for authenticated API calls.
 
     Returns:
         Dictionary containing current MRF metrics.
@@ -77,7 +77,7 @@ def poll_metrics(
         host: Hostname or IP address of the MRF node.
         port: Management API port.
         timeout: Request timeout in seconds.
-        auth_token: Optional ******
+        auth_token: Optional bearer token for authenticated API calls.
         interval: Seconds between polls.
         count: Number of snapshots to collect (``None`` = run indefinitely).
 
@@ -123,7 +123,7 @@ def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
     parser.add_argument("--host", default="localhost", help="MRF hostname or IP")
     parser.add_argument("--port", type=int, default=8080, help="Management API port")
     parser.add_argument("--timeout", type=int, default=10, help="Request timeout (seconds)")
-    parser.add_argument("--token", default=None, help="****** token")
+    parser.add_argument("--token", default=None, help="API authentication token")
     parser.add_argument(
         "--interval", type=float, default=0.0,
         help="Poll interval in seconds (0 = single snapshot)",

@@ -77,7 +77,7 @@ class MRFClient:
         host: Hostname or IP address of the MRF node.
         port: TCP port of the MRF management API.
         timeout: Socket timeout in seconds.
-        auth_token: Optional ****** for authenticated endpoints.
+        auth_token: Optional bearer token for authenticated endpoints.
     """
 
     def __init__(

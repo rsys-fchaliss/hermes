@@ -33,7 +33,7 @@ def check_status(
         host: Hostname or IP address of the MRF node.
         port: Management API port.
         timeout: Request timeout in seconds.
-        auth_token: Optional ******
+        auth_token: Optional bearer token for authenticated API calls.
 
     Returns:
         Dictionary containing status fields such as ``state``, ``uptime``,
@@ -69,7 +69,7 @@ def _parse_args(argv: Optional[list] = None) -> argparse.Namespace:
     parser.add_argument("--host", default="localhost", help="MRF hostname or IP")
     parser.add_argument("--port", type=int, default=8080, help="Management API port")
     parser.add_argument("--timeout", type=int, default=10, help="Request timeout (seconds)")
-    parser.add_argument("--token", default=None, help="****** token")
+    parser.add_argument("--token", default=None, help="API authentication token")
     parser.add_argument(
         "--json", dest="output_json", action="store_true", help="Output raw JSON"
     )
