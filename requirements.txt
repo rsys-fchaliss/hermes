@@ -1,0 +1,5 @@
+# Runtime dependencies (none required beyond the standard library)
+# Uncomment the packages below if extended features are needed.
+
+# requests>=2.31.0  # alternative HTTP client
+# click>=8.1.0      # alternative CLI framework
