@@ -46,21 +46,37 @@ def write_csv(
 
 def _group_rows(all_rows: List[dict]) -> List[dict]:
     """
-    Group rows that share the same Component Name + Closed CVE across containers.
-    Merges container names into a comma-separated list in one row.
-    This keeps the table clean when multiple containers from the same vendor/OS
-    have identical packages and CVEs.
+    Group rows by Closed CVE, merging container names and component names.
+
+    Deduplication rules:
+    1. Same CVE + same component across containers → merge container names
+    2. Same CVE across sub-packages (e.g. libcrypto3 + libssl3) → merge component names
+
+    This avoids double-counting when sub-packages from the same source report identical CVEs.
     """
-    # Key: (Product, Project Version, Component Name, Closed CVE) -> merged row
+    # Step 1: Group by (Product, Project Version, Closed CVE) to merge sub-packages
     grouped = {}
     for row in all_rows:
-        key = (row["Product"], row["Project Version"], row["Component Name"], row["Closed CVE"])
+        key = (row["Product"], row["Project Version"], row["Closed CVE"])
         if key in grouped:
-            # Append container name if not already listed
-            existing_containers = grouped[key]["Container Name"].split(", ")
-            if row["Container Name"] not in existing_containers:
-                existing_containers.append(row["Container Name"])
-                grouped[key]["Container Name"] = ", ".join(sorted(existing_containers))
+            existing = grouped[key]
+            # Merge container names
+            existing_containers = set(existing["Container Name"].split(", "))
+            new_containers = set(row["Container Name"].split(", "))
+            merged_containers = sorted(existing_containers | new_containers)
+            existing["Container Name"] = ", ".join(merged_containers)
+            # Merge component names (for sub-packages reporting same CVE)
+            existing_components = set(existing["Component Name"].split(", "))
+            if row["Component Name"] not in existing_components:
+                existing_components.add(row["Component Name"])
+                existing["Component Name"] = ", ".join(sorted(existing_components))
+            # Keep the more informative severity/date
+            if not existing["Severity"] and row["Severity"]:
+                existing["Severity"] = row["Severity"]
+            if not existing["Published Date"] and row["Published Date"]:
+                existing["Published Date"] = row["Published Date"]
+            if not existing["Modified Date"] and row["Modified Date"]:
+                existing["Modified Date"] = row["Modified Date"]
         else:
             grouped[key] = dict(row)
     return list(grouped.values())
