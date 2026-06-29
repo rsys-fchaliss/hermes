@@ -55,14 +55,33 @@ def enrich_cve(cve: ClosedCVE) -> ClosedCVE:
         for sev in severity_list:
             if sev.get("type") == "CVSS_V3":
                 score_str = sev.get("score", "")
-                # CVSS vector string — extract base score from it
-                # Or use database_specific if available
+                # OSV returns the CVSS vector string; extract base score if numeric
+                if score_str:
+                    # Try to find base score in CVSS vector (some have /BS:X.X appended)
+                    # Otherwise use the vector metrics to approximate severity
+                    import re
+                    bs_match = re.search(r"(\d+\.\d+)$", score_str)
+                    if bs_match:
+                        score = float(bs_match.group(1))
+                        cve.severity = _cvss_to_severity(score)
+                    else:
+                        # Map from vector: if AV:N + AC:L → likely high/critical
+                        if "AV:N" in score_str and "AC:L" in score_str:
+                            if "C:H" in score_str or "I:H" in score_str:
+                                cve.severity = "high"
+                            else:
+                                cve.severity = "medium"
+                        elif "AV:N" in score_str:
+                            cve.severity = "medium"
+                        else:
+                            cve.severity = "low"
                 break
 
         # Try from database_specific.severity
-        db_specific = data.get("database_specific", {})
-        if db_specific.get("severity"):
-            cve.severity = db_specific["severity"].lower()
+        if not cve.severity:
+            db_specific = data.get("database_specific", {})
+            if db_specific.get("severity"):
+                cve.severity = db_specific["severity"].lower()
 
     return cve
 
