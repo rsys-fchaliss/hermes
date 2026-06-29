@@ -6,5 +6,5 @@ venv/
 *.egg-info/
 dist/
 build/
-closed-cves.csv
+closed-cves.csv*
 .vscode/
