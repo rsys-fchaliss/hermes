@@ -1,13 +1,17 @@
 import re
 import time
 import logging
-from typing import List
+from typing import Dict, List, Optional
 import requests
 
 from hermes.models import Component, ClosedCVE
 from hermes.version_compare import is_version_lte
 
 logger = logging.getLogger(__name__)
+
+# Cache for CVE detail API responses to avoid duplicate fetches across packages.
+# Keyed by CVE ID, value is the parsed JSON detail response.
+_cve_detail_cache: Dict[str, Optional[dict]] = {}
 
 BASE_URL = "https://access.redhat.com/hydra/rest/securitydata"
 
@@ -239,5 +243,75 @@ def get_closed_cves_redhat(component: Component, rate_limit: float = 0.5) -> Lis
             matched = True
             break  # Found match for this CVE, move to next
 
+    # Enrich matched CVEs with errata release dates from the detail API.
+    # This gives us the actual date the fix was shipped for this RHEL version,
+    # which is far more meaningful than OSV.dev's database-modified timestamp.
+    _enrich_errata_dates(closed_cves, rhel_version, rate_limit)
+
     logger.info(f"Red Hat API: {component.name} → {len(closed_cves)} closed CVEs")
     return closed_cves
+
+
+def _enrich_errata_dates(
+    closed_cves: List[ClosedCVE],
+    rhel_version: str,
+    rate_limit: float = 0.5,
+) -> None:
+    """
+    Fetch the Red Hat CVE detail API for each matched CVE and extract the
+    errata release_date for the target RHEL version. Sets modified_date
+    on the ClosedCVE objects in place.
+
+    The errata release_date is when the fix was actually shipped to customers,
+    which is the most meaningful date for "when was this CVE fixed".
+    """
+    if not closed_cves:
+        return
+
+    product_prefix = f"Red Hat Enterprise Linux {rhel_version}"
+    el_suffix = f".el{rhel_version}"
+
+    for cve in closed_cves:
+        if cve.cve_id in _cve_detail_cache:
+            detail = _cve_detail_cache[cve.cve_id]
+            if detail is None:
+                continue
+        else:
+            try:
+                url = f"{BASE_URL}/cve/{cve.cve_id}.json"
+                resp = requests.get(url, timeout=30)
+                if resp.status_code == 404:
+                    logger.debug(f"Red Hat detail API: {cve.cve_id} not found")
+                    _cve_detail_cache[cve.cve_id] = None
+                    continue
+                resp.raise_for_status()
+                detail = resp.json()
+                _cve_detail_cache[cve.cve_id] = detail
+            except (requests.RequestException, ValueError) as e:
+                logger.debug(f"Red Hat detail API error for {cve.cve_id}: {e}")
+                _cve_detail_cache[cve.cve_id] = None
+                continue
+            time.sleep(rate_limit)
+
+        # Find the errata release_date for our RHEL version
+        best_date = ""
+        for release in detail.get("affected_release", []):
+            product_name = release.get("product_name", "")
+            package = release.get("package", "")
+            release_date = release.get("release_date", "")
+
+            # Match entries for our RHEL major version (e.g. "Red Hat Enterprise Linux 8")
+            # and that target the right EL suffix (e.g. .el8)
+            if not product_name.startswith(product_prefix):
+                continue
+            if el_suffix not in package:
+                continue
+
+            date_str = release_date[:10] if release_date else ""
+            if date_str:
+                # Use the earliest release date (first errata for this RHEL version)
+                if not best_date or date_str < best_date:
+                    best_date = date_str
+
+        if best_date:
+            cve.modified_date = best_date

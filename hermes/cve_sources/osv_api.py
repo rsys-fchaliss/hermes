@@ -39,15 +39,17 @@ def enrich_cve(cve: ClosedCVE) -> ClosedCVE:
         logger.debug(f"OSV.dev error for {cve.cve_id}: {e}")
         return cve
 
-    # Extract published and modified dates
+    # Extract published date
     if not cve.published_date:
         published = data.get("published", "")
         if published:
             cve.published_date = published[:10]
 
-    modified = data.get("modified", "")
-    if modified:
-        cve.modified_date = modified[:10]
+    # NOTE: We intentionally do NOT use OSV's "modified" field here.
+    # OSV "modified" is a database housekeeping timestamp (when OSV.dev last
+    # touched the record, e.g. adding cross-references). It does not indicate
+    # when the CVE was actually fixed by a distro. The errata/advisory release
+    # date from the distro source (Red Hat, Alpine) is used instead.
 
     # Extract severity from CVSS
     if not cve.severity:

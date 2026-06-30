@@ -166,7 +166,25 @@ def process_container(log_path: str, config: dict, cve_cache: dict) -> list:
             "Backported": "",
             "Severity": "",
             "Published Date": "",
-            "Modified Date": "",
+            "Fix Date": "",
+        })
+
+    # Add informational rows for freshly installed packages
+    # For Rocky, fresh installs are not queried (API cost); list them for visibility
+    # For Alpine, fresh installs ARE queried above, so only list unmatched ones
+    fresh_to_list = fresh if distro == "rocky" else []
+    for comp in fresh_to_list:
+        rows.append({
+            "Product": config["product"],
+            "Project Version": config.get("project_version", ""),
+            "Container Name": container_name,
+            "Component Name": comp.display_name,
+            "Closed CVE": "FRESH INSTALL",
+            "Source": "fresh-install",
+            "Backported": "",
+            "Severity": "",
+            "Published Date": "",
+            "Fix Date": "",
         })
 
     return rows
@@ -211,14 +229,17 @@ def main():
             logger.info(f"CVE cache: {len(cve_cache)} unique package queries cached")
 
     # Write final report
-    write_report(all_rows, config["output"])
+    cve_count, pkg_count = write_report(all_rows, config["output"])
 
     # Summary
+    base, ext = os.path.splitext(config["output"])
+    packages_path = f"{base}_packages{ext}"
     logger.info("")
     logger.info("=" * 60)
     logger.info(f"Total containers processed: {len(log_files)}")
-    logger.info(f"Total closed CVEs found: {len(all_rows)}")
-    logger.info(f"Report written to: {config['output']}")
+    logger.info(f"Closed CVEs report: {cve_count} entries → {config['output']}")
+    if pkg_count:
+        logger.info(f"Package info report: {pkg_count} entries → {packages_path}")
     logger.info("=" * 60)
 
 
